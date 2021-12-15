@@ -3,7 +3,11 @@ const Bluetooth = require("node-web-bluetooth");
 const requestBluetoothConnection = async (serviceName, characteristicName, isConnected, setValue) => {
   const device = await Bluetooth.requestDevice({
     filters: [{ services: [serviceName] }],
-  });
+  })
+    .then((device) => {
+      console.log(`Connected to: ${device.name}`);
+    })
+    .catch(console.error);
 
   const server = await device.gatt.connect();
   const service = await server.getPrimaryService(serviceName);
@@ -49,6 +53,13 @@ const requestBluetoothConnection = async (serviceName, characteristicName, isCon
 requestBluetoothConnection(
   "cycling_power",
   "cycling_power_measurement",
+  (e) => console.log(`Connected: ${e ? "yes" : "no"}`),
+  (e) => console.log(`Power: ${e}`)
+);
+
+requestBluetoothConnection(
+  "cycling_speed_and_cadence",
+  "csc_measurement",
   (e) => console.log(`Connected: ${e ? "yes" : "no"}`),
   (e) => console.log(`Power: ${e}`)
 );

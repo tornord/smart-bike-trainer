@@ -1,20 +1,37 @@
-const noble = require("@abandonware/noble");
-const express = require("express");
-const cors = require("cors");
-const { Server } = require("socket.io");
+import noble from "@abandonware/noble";
+import express from "express";
+import cors from "cors";
+import { Server } from "socket.io";
+import { ActivitySession, CadenceEvent, HeartRateEvent, PowerEvent } from "./ActivitySession";
 
 const app = express();
 const port = 3001;
 app.use(cors());
 
-const records = [];
+let session: ActivitySession | null = null;
 
 app.get("/", (req, res) => {
-  res.json(records);
+  res.json({});
+});
+
+app.get("/session", (req, res) => {
+  res.json(session);
+});
+
+app.get("/start", (req, res) => {
+  if (!session) {
+    session = new ActivitySession(Date.now());
+  }
+  res.json({ startTimestamp: session.startTimestamp });
+});
+
+app.get("/reset", (req, res) => {
+  session = null;
+  res.json({});
 });
 
 const server = app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`);
+  console.log(`Listening at http://localhost:${port}`);
 });
 
 const io = new Server(server, {
@@ -23,25 +40,39 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
 });
-let interval;
 
-const getApiAndEmit = (socket) => {
-  socket.emit("HeartRate", { timestamp: new Date(), value: 120 + Math.floor(20 * Math.random()) });
-  socket.emit("Cadence", { timestamp: new Date(), value: 75 + Math.floor(40 * Math.random()) });
-  socket.emit("Power", { timestamp: new Date(), value: 220 + Math.floor(100 * Math.random()) });
-};
-
-io.on("connection", (socket) => {
-  console.log("New client connected");
-  if (interval) {
-    clearInterval(interval);
+setInterval(() => {
+  if (session) {
+    const event: HeartRateEvent = { timestamp: Date.now(), value: 120 + Math.floor(20 * Math.random()) };
+    session.pushHeartRateEvent(event);
+    io.emit("HeartRate", event);
   }
-  interval = setInterval(() => getApiAndEmit(socket), 1000);
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
-    clearInterval(interval);
-  });
-});
+}, 907);
+// setInterval(() => {
+//   if (session) {
+//     const event: CadenceEvent = { timestamp: Date.now(), value: 75 + Math.floor(40 * Math.random()) };
+//     io.emit("Cadence", event);
+//   }
+// }, 1003);
+setInterval(() => {
+  if (session) {
+    const event: PowerEvent = { timestamp: Date.now(), value: 220 + Math.floor(100 * Math.random()) };
+    session.pushPowerEvent(event);
+    io.emit("Power", event);
+  }
+}, 1105);
+
+// io.on("connection", (socket: Socket) => {
+//   console.log("New client connected");
+//   if (interval) {
+//     clearInterval(interval);
+//   }
+//   interval = setInterval(() => getApiAndEmit(socket), 1000);
+//   socket.on("disconnect", () => {
+//     console.log("Client disconnected");
+//     clearInterval(interval);
+//   });
+// });
 
 // Run this on Linux (to avoid running as sudo):
 // sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
@@ -70,12 +101,16 @@ async function main() {
         if (c) {
           // value = await c.readAsync();
           await c.subscribeAsync();
-          c.on("data", (v) => {
-            const s = [0, 1, 2, 3, 4].map((d) => v.readUint8(d));
-            const c = v.readUint16LE(1);
-            const t = v.readUint16LE(3) / 1024;
+          c.on("data", (v: Buffer) => {
+            const s = [0, 1, 2, 3, 4].map((d) => v.readUInt8(d));
+            const c = v.readUInt16LE(1);
+            const t = v.readUInt16LE(3) / 1024;
             console.log(`${s.join(",")} - ${c} - ${t.toFixed(2)} - ${(Date.now() % 600000) / 1000}`);
-            records.push({ revolutions: c, eventTime: t, timeStamp: Date.now() });
+            if (session) {
+              const event = { revolutions: c, eventTime: t, timestamp: Date.now() };
+              io.emit("Cadence", event);
+              session.pushCadenceEvent(event);
+            }
           });
         }
         console.log(`${peripheral.address} (${peripheral.advertisement.localName}): ${value}%`);
