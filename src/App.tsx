@@ -6,6 +6,9 @@ import socketIOClient from "socket.io-client";
 import { ActivitySession, CadenceEvent, calcCadence, HeartRateEvent, PowerEvent, Record } from "./ActivitySession";
 import "./App.scss";
 import { TimeSeriesChart } from "./TimeSeriesChart";
+import { Plus, Minus } from "./icons";
+
+const { max } = Math;
 
 interface Events {
   heartRate: HeartRateEvent[] | null;
@@ -59,12 +62,43 @@ function toSeries(records: Record[], field: string) {
   return { timestamps, values };
 }
 
+function PowerDigit({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="power-digit column">
+      <div className="button" onClick={() => onChange?.(1)}>
+        <Plus />
+      </div>
+      <div className="digit">{value}</div>
+      <div className="button" onClick={() => onChange?.(-1)}>
+        <Minus />
+      </div>
+    </div>
+  );
+}
+
+function PowerControlBox({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const s = value % 10;
+  const r = (value - s) / 10;
+  const h = r % 10;
+  const c = (r - h) / 10;
+  return (
+    <div className="power-control-box box width1">
+      <div className="row">
+        <PowerDigit value={c} onChange={(v) => onChange?.(100 * v)} />
+        <PowerDigit value={h} onChange={(v) => onChange?.(10 * v)} />
+        <PowerDigit value={s} onChange={(v) => onChange?.(v)} />
+      </div>
+    </div>
+  );
+}
+
 function MainView() {
   const [{ index, session, events }, setState] = useState({
     index: 0,
     session: null,
     events: { heartRate: null, cadence: null, power: null },
   } as State);
+  const [controlPower, setControlPower] = useState(100);
 
   useEffect(() => {
     const url = `http://localhost:3001/session`;
@@ -98,12 +132,12 @@ function MainView() {
         if (state.session && !state.session.stopTimestamp) {
           state.session?.pushCadenceEvent(data);
         } else {
-          const {cadence: cadenceEvents}=state.events
+          const { cadence: cadenceEvents } = state.events;
           if (cadenceEvents === null) {
             state.events.cadence = [data];
           } else {
             cadenceEvents.push(data);
-            while (cadenceEvents.length>20) {
+            while (cadenceEvents.length > 20) {
               cadenceEvents.shift();
             }
           }
@@ -168,7 +202,7 @@ function MainView() {
   return (
     <div className="mainview">
       <div className="row">
-        <div className="box width4">
+        <div className="box width1">
           <PlayButton
             session={session}
             onFetch={(data, buttonState) => {
@@ -188,22 +222,23 @@ function MainView() {
           />
           <p>Records: {session && session.records.length >= 0 ? session.records.length : ""}</p>
         </div>
-        <div className="box width4">
+        <div className="box width1">
           <span className="label">Heart rate</span>
           <span className="big-number">{heartRate}</span>
         </div>
-        <div className="box width4">
+        <div className="box width1">
           <span className="label">Cadence</span>
           <span className="big-number">{cadence}</span>
         </div>
-        <div className="box width4">
+        <div className="box width1">
           <span className="label">Power</span>
           <span className="big-number">{power}</span>
         </div>
+        <PowerControlBox value={controlPower} onChange={(v: number) => setControlPower((p) => max(p + v, 0))} />
       </div>
       <div className="row">
         {session && session.records.length >= 0 ? (
-          <div className="box width1">
+          <div className="box width3">
             <TimeSeriesChart startTimestamp={0} series={[toSeries(session.records, "heartRate")]} />
           </div>
         ) : null}

@@ -253,6 +253,13 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
   }
 }
 
+async function writeErgLoad(c: noble.Characteristic, watt: number) {
+  const dv = new DataView(new ArrayBuffer(3));
+  dv.setInt8(0, 66);
+  dv.setInt16(1, watt, true);
+  await c.writeAsync(Buffer.from(dv.buffer), true);
+}
+
 async function main() {
   try {
     await noble.startScanningAsync();
