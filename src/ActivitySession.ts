@@ -51,6 +51,7 @@ export class ActivitySession {
     this.cadenceEvents = [];
     this.powerEvents = [];
     this.startTimestamp = startTimestamp;
+    this.stopTimestamp = null;
     this.currentLapIndex = 0;
     this.recordsTimestep = 1000;
   }
@@ -59,6 +60,7 @@ export class ActivitySession {
   cadenceEvents: CadenceEvent[];
   powerEvents: PowerEvent[];
   startTimestamp: number;
+  stopTimestamp: number | null;
   currentLapIndex: number;
   recordsTimestep: number;
 
@@ -77,18 +79,22 @@ export class ActivitySession {
     }
   }
 
-  isValidTimestamp(timestamp: number, events: HeartRateEvent[] | PowerEvent[] | CadenceEvent[]): boolean {
+  isValidEvent(timestamp: number, events: HeartRateEvent[] | PowerEvent[] | CadenceEvent[]): boolean {
+    if (this.stopTimestamp !== null) return false;
     if (events.length > 0 && timestamp <= events[events.length - 1].timestamp) return false;
     if (timestamp < this.startTimestamp) return false;
     return true;
   }
 
   pushHeartRateEvent(event: HeartRateEvent) {
-    if (!this.isValidTimestamp(event.timestamp, this.heartRateEvents)) return;
+    if (!this.isValidEvent(event.timestamp, this.heartRateEvents)) return;
     this.heartRateEvents.push(event);
     const elapsedTime = event.timestamp - this.startTimestamp;
     const index = floor(elapsedTime / this.recordsTimestep);
     this.createRecords(index);
+    if (event.value === 0) {
+      return;
+    }
     if (index - 1 >= 0 && this.records[index - 1].heartRate === null) {
       this.records[index - 1].heartRate = event.value;
     }
@@ -96,7 +102,7 @@ export class ActivitySession {
   }
 
   pushPowerEvent(event: PowerEvent) {
-    if (!this.isValidTimestamp(event.timestamp, this.powerEvents)) return;
+    if (!this.isValidEvent(event.timestamp, this.powerEvents)) return;
     this.powerEvents.push(event);
     const elapsedTime = event.timestamp - this.startTimestamp;
     const index = floor(elapsedTime / this.recordsTimestep);
@@ -108,7 +114,7 @@ export class ActivitySession {
   }
 
   pushCadenceEvent(event: CadenceEvent) {
-    if (!this.isValidTimestamp(event.timestamp, this.cadenceEvents)) return;
+    if (!this.isValidEvent(event.timestamp, this.cadenceEvents)) return;
     this.cadenceEvents.push(event);
     const elapsedTime = event.timestamp - this.startTimestamp;
     const index = floor(elapsedTime / this.recordsTimestep);

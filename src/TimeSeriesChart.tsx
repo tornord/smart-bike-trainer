@@ -1,10 +1,11 @@
 import * as d3 from "d3";
 import { useState } from "react";
 import * as math from "ts-math";
-import { dateToString, epochToString, toEpoch } from "./dateHelper";
+
+const { round, floor } = Math;
 
 export interface TimeSeries {
-  dates: string[];
+  timestamps: number[];
   values: number[];
 }
 
@@ -28,7 +29,7 @@ export enum PointType {
 }
 
 export interface Series {
-  dates: string[];
+  timestamps: number[];
   values: number[];
   color?: string;
   strokeWidth?: number;
@@ -49,9 +50,9 @@ interface TimeSeriesChartProps {
   width?: number;
   height?: number;
   series: Series[];
-  onMouseMove?: (date: string, value: number) => void;
-  startDate?: string | null;
-  endDate?: string | null;
+  onMouseMove?: (timestamp: number, value: number) => void;
+  startTimestamp?: number | null;
+  endTimestamp?: number | null;
   minValue?: number;
   maxValue?: number;
   logarithmic?: boolean;
@@ -59,7 +60,7 @@ interface TimeSeriesChartProps {
 }
 
 interface Point {
-  date: number;
+  timestamp: number;
   value: number;
 }
 
@@ -73,18 +74,26 @@ interface Trace {
 const round2 = (x: number) => math.round(x, 2);
 
 function createPathD(
-  { dates, values }: TimeSeries,
-  xScale: d3.ScaleTime<number, number>,
+  { timestamps, values }: TimeSeries,
+  xScale: d3.ScaleLinear<number, number>,
   yScale: d3.ScaleLinear<number, number> | d3.ScaleLogarithmic<number, number>
 ) {
-  const points: Point[] = dates.map((d, i) => ({ date: toEpoch(d), value: values[i] }));
-  const lineXValue = (d: any, i: number) => round2(xScale(d.date));
-  const lineYValue = (d: any, i: number) => round2(yScale(d.value));
+  const points: Point[] = timestamps.map((d: number, i: number) => ({ timestamp: d, value: values[i] }));
+  const lineXValue = (d: any, i: number): number => round2(xScale(d.timestamp));
+  const lineYValue = (d: any, i: number): number => round2(yScale(d.value));
   const line = d3.line().x(lineXValue).y(lineYValue);
   return line(points as any[]);
 }
 
 const isNumber = (x: any) => typeof x === "number";
+
+function timestampToString(t: number) {
+  // t elapsed time in ms
+  let s = round(t / 1000);
+  const m = floor(s / 60);
+  s = s % 60;
+  return `${m}:${s.toFixed(0).padStart(2, "0")}`;
+}
 
 export function useCursor(syncX: boolean, syncY: boolean) {
   const [{ x, y }, setState] = useState({ x: -1, y: -1 });
@@ -100,12 +109,12 @@ export function TimeSeriesChart({
   height,
   series,
   onMouseMove,
-  startDate,
-  endDate,
+  startTimestamp,
+  endTimestamp,
   minValue,
   maxValue,
   logarithmic,
-  cursor
+  cursor,
 }: TimeSeriesChartProps) {
   width = width ?? 600;
   height = height ?? 300;
@@ -123,10 +132,10 @@ export function TimeSeriesChart({
   // const data = dates.map((d, i) => ({ date: d, value: values[i] }));
   let totMinV = Number.NaN;
   let totMaxV = Number.NaN;
-  let totStartD = "";
-  let totEndD = "";
+  let totStartTimestamp = Number.NaN;
+  let totEndTimestamp = Number.NaN;
   for (let i = 0; i < series.length; i++) {
-    const { dates, values } = series[i];
+    const { timestamps, values } = series[i];
     const minMaxValues = minMax(values);
     const minv = minMaxValues[0] - yRelativeMargin * (minMaxValues[1] - minMaxValues[0]);
     const maxv = minMaxValues[1] + yRelativeMargin * (minMaxValues[1] - minMaxValues[0]);
@@ -136,14 +145,12 @@ export function TimeSeriesChart({
     if (Number.isNaN(totMaxV) || maxv > totMaxV) {
       totMaxV = maxv;
     }
-    for (let j = 0; j < dates.length; j++) {
-      const date = dates[j];
-      if (!totStartD || date < totStartD) {
-        totStartD = date;
-      }
-      if (!totEndD || date > totEndD) {
-        totEndD = date;
-      }
+    const [mint, maxt] = minMax(timestamps);
+    if (Number.isNaN(totStartTimestamp) || mint < totStartTimestamp) {
+      totStartTimestamp = mint;
+    }
+    if (Number.isNaN(totEndTimestamp) || maxt > totEndTimestamp) {
+      totEndTimestamp = maxt;
     }
   }
   if (!isNumber(minValue)) {
@@ -152,19 +159,19 @@ export function TimeSeriesChart({
   if (!isNumber(maxValue)) {
     maxValue = totMaxV;
   }
-  if (typeof startDate !== "string") {
-    startDate = totStartD;
+  if (typeof startTimestamp !== "number") {
+    startTimestamp = totStartTimestamp;
   }
-  if (typeof endDate !== "string") {
-    endDate = totEndD;
+  if (typeof endTimestamp !== "number") {
+    endTimestamp = totEndTimestamp;
   }
   // console.log(minValue, maxValue, startDate, endDate);
   const yScale = logarithmic === true ? d3.scaleLog() : d3.scaleLinear();
   yScale.domain([minValue as number, maxValue as number]).range([height - xAxisHeight - marginTop, marginTop]);
   const yTicks = yScale.ticks(5);
   const xScale = d3
-    .scaleTime()
-    .domain([toEpoch(startDate as string), toEpoch(endDate as string)])
+    .scaleLinear()
+    .domain([startTimestamp, endTimestamp])
     .range([marginLeft, width - marginRight]);
   const xTicks = xScale.ticks(5);
   let traces: Trace[] = [];
@@ -173,17 +180,17 @@ export function TimeSeriesChart({
     traces.push({
       index: i,
       d: s.drawPath !== false ? (createPathD(s, xScale, yScale) as string) : null,
-      points: s.dates.map((d, i) => ({ date: toEpoch(d), value: s.values[i] })),
+      points: s.timestamps.map((d, i) => ({ timestamp: d, value: s.values[i] })),
       series: s,
     });
   }
-  if (cursor && (cursor.x >= 0)) {
+  if (cursor && cursor.x >= 0) {
     traces.push({
       index: series.length,
       d: `M${cursor.x},${yScale(minValue as number)} L${cursor.x},${yScale(maxValue as number)}`,
       points: [],
       series: {
-        dates: [],
+        timestamps: [],
         values: [],
         strokeDasharray: "3 4",
         strokeWidth: 1,
@@ -192,28 +199,27 @@ export function TimeSeriesChart({
     });
   }
 
-  // console.log(minValue, maxValue, yScale(minValue), yScale(maxValue), yTicks);
+  // console.log(series);
   return (
     <svg
-      width={width}
-      height={height}
+      viewBox={`0 0 ${width} ${height}`}
       onMouseMove={(e) => {
         const x = e.nativeEvent.offsetX;
         const y = e.nativeEvent.offsetY;
-        const date = epochToString(xScale.invert(x) as any as number);
+        const timestamp = xScale.invert(x);
         const value = yScale.invert(y);
         if (onMouseMove) {
-          onMouseMove(date, value);
+          onMouseMove(timestamp, value);
         }
         if (cursor) {
-          cursor.onMouseMove(x,y);
+          cursor.onMouseMove(x, y);
         }
       }}
     >
       <g transform={`translate(${0},${height - xAxisHeight})`}>
         <line x1="0" y1="0" x2={width} y2="0" stroke={textColor} strokeWidth="1" />
-        {xTicks.map((d, i) => (
-          <g key={i} transform={`translate(${xScale(d)},${0})`}>
+        {xTicks.map((t, i) => (
+          <g key={i} transform={`translate(${xScale(t)},${0})`}>
             <line x1="0" y1="0" x2="0" y2={xTickSize} stroke={textColor} strokeWidth="1" />
             <text
               x="0"
@@ -222,7 +228,7 @@ export function TimeSeriesChart({
               alignmentBaseline="hanging"
               style={{ fontSize, color: fontColor, fill: fontColor }}
             >
-              {dateToString(d)}
+              {timestampToString(t)}
             </text>
           </g>
         ))}
@@ -250,7 +256,7 @@ export function TimeSeriesChart({
               {trace.points.map((p, j) => (
                 <circle
                   key={j}
-                  cx={xScale(p.date)}
+                  cx={xScale(p.timestamp)}
                   cy={yScale(p.value)}
                   r={trace.series.pointSize ?? 2}
                   fill={trace.series.fillColor ?? "none"}

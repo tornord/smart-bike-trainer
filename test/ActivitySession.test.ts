@@ -44,6 +44,13 @@ test("pushHeartRateEvent", () => {
   expect(toString(s)).toBe("null,60,60,null,65,70,75");
   s.pushHeartRateEvent({ timestamp: 168, value: 75 });
   expect(toString(s)).toBe("null,60,60,null,65,70,75");
+  s.pushHeartRateEvent({ timestamp: 170, value: 80 });
+  expect(toString(s)).toBe("null,60,60,null,65,70,75,80");
+  s.pushHeartRateEvent({ timestamp: 175, value: 0 });
+  expect(toString(s)).toBe("null,60,60,null,65,70,75,80");
+  s.stopTimestamp = 180;
+  s.pushHeartRateEvent({ timestamp: 185, value: 85 });
+  expect(toString(s)).toBe("null,60,60,null,65,70,75,80");
 });
 
 test("pushPowerEvent", () => {

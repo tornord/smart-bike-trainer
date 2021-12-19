@@ -7,11 +7,35 @@
     {
       "type": "pwa-node",
       "request": "launch",
-      "name": "Launch Program",
+      "name": "Run node",
       "skipFiles": ["<node_internals>/**"],
       "program": "${file}",
       "runtimeExecutable": "${env:HOME}/.nvm/versions/node/v14.18.1/bin/node",
       "console": "integratedTerminal"
+    },
+    {
+      "name": "Run current ts-node",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/ts-node/dist/bin",
+      "args": ["--transpile-only", "--project", "ts-node.tsconfig.json", "${file}"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "runtimeExecutable": "${env:HOME}/.nvm/versions/node/v14.18.1/bin/node"
+    },
+    {
+      "name": "Run current node ts register",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
+      "args": ["${file}"],
+      "cwd": "${workspaceRoot}",
+      "internalConsoleOptions": "openOnSessionStart",
+      "env": {
+        "TS_NODE_PROJECT": "ts-node.tsconfig.json"
+      },
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "runtimeExecutable": "${env:HOME}/.nvm/versions/node/v14.18.1/bin/node"
     }
   ]
 }

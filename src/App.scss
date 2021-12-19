@@ -1,0 +1,50 @@
+body {
+  background: rgb(18, 18, 18);
+  color: #eee;
+  font-size: 14px;
+}
+
+// rgb(255, 207, 0) // nordnet yellow
+// rgb(0, 145, 149) // nordnet blue
+// rgb(115, 191, 105) // grafana green
+// rgb(242, 73, 92) // grafana red
+
+$box-margin: 12px;
+
+.row {
+  display: flex;
+  min-width: 360px;
+}
+
+.row + .row {
+  margin-top: 0 * $box-margin;
+}
+
+.box {
+  background: rgb(33, 33, 33);
+  margin: $box-margin;
+  border-radius: 8px;
+  padding: $box-margin;
+}
+
+.width3 {
+  width: 33vw;
+  height: 24vw;
+}
+
+.width4 {
+  width: 25vw;
+  height: 14vw;
+}
+
+.width1 {
+  width: 99vw;
+  height: 44vw;
+}
+
+.big-number {
+  width: 100%;
+  display: block;
+  font-size: 10vw;
+  text-align: center;
+}
