@@ -59,6 +59,7 @@ app.get("/writepower", async (req, res) => {
   let { watt: wattAsString } = req.query;
   const watt = Number(wattAsString);
   if (writePowerCharacteristics) {
+    console.log("writePower", watt);
     await writeErgLoad(writePowerCharacteristics, watt);
   }
   res.json({ connected: writePowerCharacteristics !== null });
