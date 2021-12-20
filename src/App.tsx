@@ -94,7 +94,7 @@ function PowerControlBox({ value, onChange }: { value: number; onChange: (v: num
 }
 
 function MainView() {
-  const [{ index, session, events }, setState] = useState({
+  const [{ session, events }, setState] = useState({
     index: 0,
     session: null,
     events: { heartRate: null, cadence: null, power: null },
@@ -155,6 +155,9 @@ function MainView() {
         }
         return { index: state.index + 1, session: state.session, events: state.events };
       });
+    });
+    socket.on("connect_failed", function () {
+      console.log("Sorry, there seems to be an issue with the connection!");
     });
   }, []);
   useEffect(() => {
