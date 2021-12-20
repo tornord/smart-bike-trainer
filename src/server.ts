@@ -56,7 +56,7 @@ app.get("/reset", (req, res) => {
 });
 
 const server = app.listen(SERVER_PORT, () => {
-  console.log(`Listening at ${SERVER_URL}`);
+  console.log(`Listening at ${SERVER_URL}:${SERVER_PORT}`);
 });
 
 const io = new Server(server, {
@@ -145,8 +145,9 @@ setInterval(async () => {
     const { peripheral } = device;
     if (peripheral.state === "connected") continue;
     const { localName } = peripheral.advertisement;
+    console.log(localName, "disconnected");
     try {
-      await connectPeripheral(peripheral, localName);
+      await connectPeripheral(peripheral, localName, false);
     } catch (e) {
       console.log(e);
     }
@@ -160,7 +161,7 @@ function setLastEventTime(peripheral: noble.Peripheral) {
   }
 }
 
-async function connectPeripheral(peripheral: noble.Peripheral, localName: string) {
+async function connectPeripheral(peripheral: noble.Peripheral, localName: string, readDeviceInfo: boolean) {
   await peripheral.connectAsync();
   if (!devices[peripheral.id]) {
     devices[peripheral.id] = {
@@ -181,31 +182,39 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
   //   console.log(cs.map((d) => d.uuid).join(","));
   // }
   // Battery Level
-  readValue(services, "180f", "2a19", (buf) => buf.readUInt8(0)).then((v) => {
-    console.log("Battery level", localName, v);
-    devices[peripheral.id].batteryLevel = v;
-  });
-  // Manufacturer Name String
-  readValue(services, "180a", "2a29", (buf) => buf.toString("utf8")).then((v) => {
-    console.log("manufacturerName", v);
-    devices[peripheral.id].manufacturerName = v;
-  });
-  // Hardware Revision String
-  readValue(services, "180a", "2a27", (buf) => buf.toString("utf8")).then((v) => {
-    devices[peripheral.id].hardwareRevision = v;
-  });
-  // Firmware Revision String
-  readValue(services, "180a", "2a26", (buf) => buf.toString("utf8")).then((v) => {
-    devices[peripheral.id].firmwareRevision = v;
-  });
-  // Serial Number String
-  readValue(services, "180a", "2a25", (buf) => buf.toString("utf8")).then((v) => {
-    devices[peripheral.id].serialNumber = v;
-  });
+
+  if (readDeviceInfo) {
+    readValue(services, "180f", "2a19", (buf) => buf.readUInt8(0)).then((v) => {
+      console.log("Battery level", localName, v);
+      devices[peripheral.id].batteryLevel = v;
+    });
+    // Manufacturer Name String
+    readValue(services, "180a", "2a29", (buf) => buf.toString("utf8")).then((v) => {
+      console.log("Manufacturer Name", v);
+      devices[peripheral.id].manufacturerName = v;
+    });
+    // Hardware Revision String
+    readValue(services, "180a", "2a27", (buf) => buf.toString("utf8")).then((v) => {
+      devices[peripheral.id].hardwareRevision = v;
+    });
+    // Firmware Revision String
+    readValue(services, "180a", "2a26", (buf) => buf.toString("utf8")).then((v) => {
+      devices[peripheral.id].firmwareRevision = v;
+    });
+    // Serial Number String
+    readValue(services, "180a", "2a25", (buf) => buf.toString("utf8")).then((v) => {
+      devices[peripheral.id].serialNumber = v;
+    });
+  }
 
   const heartRateService = services.find((d) => d.uuid === "180d");
   const cadenceService = services.find((d) => d.uuid === "1816");
   const powerService = services.find((d) => d.uuid === "1818");
+
+  if (powerService && !localName.startsWith("KICKR SNAP")) {
+    delete devices[peripheral.id];
+    return;
+  }
 
   if (cadenceService) {
     // 2a5b CSC Measurement
@@ -232,22 +241,21 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
       });
     }
   }
-  if (powerService && localName.startsWith("KICKR SNAP")) {
+  if (powerService) {
     //(localName.startsWith("KICKR SNAP")) {
     // console.log("discoverServicesAsync", s);
     // 2a5b CSC Measurement
     // 1818 2a63
     const c = powerService.characteristics.find((d) => d.uuid === "2a63");
-    if (!writePowerCharacteristics) {
-      writePowerCharacteristics =
-        powerService.characteristics.find((d) => d.uuid === "a026e0050a7d4ab397faf1500f9feb8b") ?? null;
-      if (writePowerCharacteristics) {
-        await writePowerCharacteristics.subscribeAsync();
-        if (controlPower !== DEFAULT_CONTROL_POWER) {
-          await writeErgLoad(writePowerCharacteristics, controlPower);
-        }
+    writePowerCharacteristics =
+      powerService.characteristics.find((d) => d.uuid === "a026e0050a7d4ab397faf1500f9feb8b") ?? null;
+    if (writePowerCharacteristics) {
+      await writePowerCharacteristics.subscribeAsync();
+      if (controlPower !== DEFAULT_CONTROL_POWER) {
+        await writeErgLoad(writePowerCharacteristics, controlPower);
       }
     }
+
     // const characteristics = await powerService.discoverCharacteristicsAsync(["2a63"]);
     // if (!characteristics || characteristics.length !== 1) return;
     // const c = characteristics[0];
@@ -322,7 +330,7 @@ async function main() {
         const wantedUuid = ["180d", "1816", "1818"];
         if (!(serviceUuids as string[]).some((d) => wantedUuid.find((e) => e === d))) return;
 
-        await connectPeripheral(peripheral, localName);
+        await connectPeripheral(peripheral, localName, true);
       } catch (e) {
         console.log(e);
       }
