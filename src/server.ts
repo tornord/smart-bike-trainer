@@ -3,13 +3,11 @@ import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
 import fs from "fs";
-import { ActivitySession, CadenceEvent, HeartRateEvent, PowerEvent } from "./ActivitySession";
-import { type } from "os";
+import { ActivitySession, HeartRateEvent } from "./ActivitySession";
+import { SERVER_URL, SERVER_PORT } from "./config";
 
-const { floor } = Math;
 const DEBUG = false;
 const app = express();
-const port = 3001;
 app.use(cors());
 
 let session: ActivitySession | null = null;
@@ -57,22 +55,22 @@ app.get("/reset", (req, res) => {
   res.json({});
 });
 
-const server = app.listen(port, () => {
-  console.log(`Listening at http://localhost:${port}`);
+const server = app.listen(SERVER_PORT, () => {
+  console.log(`Listening at ${SERVER_URL}`);
 });
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
 
-io.on('connection', function(socket){
-  console.log('connection');
-  
-  socket.on('disconnect', function () {
-     console.log('disconnect');
+io.on("connection", function (socket) {
+  console.log("connection");
+
+  socket.on("disconnect", function () {
+    console.log("disconnect");
   });
 });
 
@@ -83,7 +81,7 @@ app.get("/writepower", async (req, res) => {
     console.log("writePower", watt);
     await writeErgLoad(writePowerCharacteristics, watt);
     controlPower = watt;
-    io.emit("ControlPower", {value: watt});
+    io.emit("ControlPower", { value: watt });
   }
   res.json({ connected: writePowerCharacteristics !== null, controlPower });
 });

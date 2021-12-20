@@ -7,11 +7,9 @@ import { ActivitySession, CadenceEvent, calcCadence, HeartRateEvent, PowerEvent,
 import "./App.scss";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { Plus, Minus } from "./icons";
+import { SERVER_URL, SERVER_PORT } from "./config";
 
-const { REACT_APP_SERVER_URL: SERVER_URL } = process.env as unknown as { REACT_APP_SERVER_URL: string };
 const { max, min } = Math;
-
-console.log("SERVER_URL", SERVER_URL);
 
 interface Events {
   heartRate: HeartRateEvent[] | null;
@@ -36,7 +34,7 @@ function PlayButton({ session, onFetch }: PlayButtonProps) {
     <button
       type="button"
       onClick={(e) => {
-        fetch(`${process.env.REACT_APP_SERVER_URL}/${buttonState.toLowerCase()}`)
+        fetch(`${SERVER_URL}:${SERVER_PORT}/${buttonState.toLowerCase()}`)
           .then((response: Response) => response.json())
           .then((data) => {
             if (onFetch) {
@@ -104,7 +102,7 @@ function MainView() {
   const [controlPower, setControlPower] = useState(100);
 
   useEffect(() => {
-    const url = `${SERVER_URL}/session`;
+    const url = `${SERVER_URL}:${SERVER_PORT}/session`;
     axios.get(url).then(({ data }) => {
       let s: ActivitySession | null = null;
       let e: Events = { heartRate: null, cadence: null, power: null };
@@ -119,7 +117,7 @@ function MainView() {
       }
       setState((state) => ({ index: state.index + 1, session: s, events: e }));
     });
-    const socket = socketIOClient(SERVER_URL);
+    const socket = socketIOClient(`${SERVER_URL}:${SERVER_PORT}`);
     socket.on("HeartRate", (data) => {
       setState((state: State) => {
         if (state.session && !state.session.stopTimestamp) {
@@ -237,7 +235,7 @@ function MainView() {
             }}
           />
           <p>Records: {session && session.records.length >= 0 ? session.records.length : ""}</p>
-          <p>Server URL: {SERVER_URL}</p>
+          <p>Server URL: {SERVER_URL}:{SERVER_PORT}</p>
         </div>
         <div className="box width1">
           <span className="label">Heart rate</span>
@@ -256,7 +254,7 @@ function MainView() {
           onChange={(v: number) => {
             // setControlPower((p) => min(max(p + v, 0), 999))}
             const power = min(max(controlPower + v, 0), 999);
-            const url = `${SERVER_URL}/writepower?watt=${power}`;
+            const url = `${SERVER_URL}:${SERVER_PORT}/writepower?watt=${power}`;
             console.log("writepower send", power);
             axios.get(url).then(({ data }) => {
               console.log("writepower receive", data);

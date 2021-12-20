@@ -48,13 +48,6 @@ $box-margin: 10px;
   min-width: 360px;
 }
 
-@media (max-width: 600px) {
-  .mainview > .row {
-    flex-direction: column;
-    min-height: 700px;
-  }
-}
-
 .power-control-box {
   display: flex;
   flex-direction: column;
@@ -87,6 +80,32 @@ $box-margin: 10px;
     text-align: center;
     font-size: 10vw;
     user-select: none;
-    margin-top: -0.6vw;
+    margin-top: -0.8vw;
   }
+}
+
+@media (max-width: 600px) {
+  .mainview > .row {
+    flex-direction: column;
+    min-height: 700px;
+  }
+
+  .power-digit {
+    .digit {
+      font-size: 20vw;
+      margin-top: -1vw;
+    }
+  }
+
+  .power-control-box {
+    .row {
+      svg {
+        width: 50px;
+      }
+    }
+  }
+
+  .big-number {
+    font-size: 20vw;
+  }  
 }
