@@ -4,12 +4,16 @@ import cors from "cors";
 import { Server } from "socket.io";
 import fs from "fs";
 import { ActivitySession, CadenceEvent, HeartRateEvent, PowerEvent } from "./ActivitySession";
+import { type } from "os";
 
+const { floor } = Math;
+const DEBUG = false;
 const app = express();
 const port = 3001;
 app.use(cors());
 
 let session: ActivitySession | null = null;
+let writePowerCharacteristics: noble.Characteristic | null = null;
 
 function writeActivitySession(session: ActivitySession) {
   const dir = "./data";
@@ -49,6 +53,15 @@ app.get("/reset", (req, res) => {
   }
   session = null;
   res.json({});
+});
+
+app.get("/writepower", async (req, res) => {
+  let { watt: wattAsString } = req.query;
+  const watt = Number(wattAsString);
+  if (writePowerCharacteristics) {
+    await writeErgLoad(writePowerCharacteristics, watt);
+  }
+  res.json({ connected: writePowerCharacteristics !== null });
 });
 
 const server = app.listen(port, () => {
@@ -121,8 +134,11 @@ setInterval(async () => {
     const { peripheral } = device;
     if (peripheral.state === "connected") continue;
     const { localName } = peripheral.advertisement;
-    console.log("device disconnected", localName);
-    await connectPeripheral(peripheral, localName);
+    try {
+      await connectPeripheral(peripheral, localName);
+    } catch (e) {
+      console.log(e);
+    }
   }
 }, 10000);
 
@@ -143,16 +159,16 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
       firmwareRevision: null,
       hardwareRevision: null,
       serialNumber: null,
-      lastEventTimestamp: null
+      lastEventTimestamp: null,
     };
   }
 
   const { services } = await peripheral.discoverAllServicesAndCharacteristicsAsync();
-  const s = services.find((d) => d.uuid === "180a");
-  if (s) {
-    const cs = await s.discoverCharacteristicsAsync();
-    console.log(cs.map((d) => d.uuid).join(","));
-  }
+  // const s = services.find((d) => d.uuid === "180a");
+  // if (s) {
+  //   const cs = await s.discoverCharacteristicsAsync();
+  //   console.log(cs.map((d) => d.uuid).join(","));
+  // }
   // Battery Level
   readValue(services, "180f", "2a19", (buf) => buf.readUInt8(0)).then((v) => {
     console.log("Battery level", localName, v);
@@ -193,7 +209,9 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
         const s = [0, 1, 2, 3, 4].map((d) => v.readUInt8(d));
         const c = v.readUInt16LE(1);
         const t = v.readUInt16LE(3) / 1024;
-        console.log(`${s.join(",")} - ${c} - ${t.toFixed(2)} - ${(Date.now() % 600000) / 1000}`);
+        if (DEBUG) {
+          console.log(`${s.join(",")} - ${c} - ${t.toFixed(2)} - ${(Date.now() % 600000) / 1000}`);
+        }
         const event = { revolutions: c, eventTime: t, timestamp: Date.now() };
         io.emit("Cadence", event);
         if (session) {
@@ -209,6 +227,13 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
     // 2a5b CSC Measurement
     // 1818 2a63
     const c = powerService.characteristics.find((d) => d.uuid === "2a63");
+    if (!writePowerCharacteristics) {
+      writePowerCharacteristics =
+        powerService.characteristics.find((d) => d.uuid === "a026e0050a7d4ab397faf1500f9feb8b") ?? null;
+      if (writePowerCharacteristics) {
+        await writePowerCharacteristics.subscribeAsync();
+      }
+    }
     // const characteristics = await powerService.discoverCharacteristicsAsync(["2a63"]);
     // if (!characteristics || characteristics.length !== 1) return;
     // const c = characteristics[0];
@@ -218,7 +243,9 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
       c.on("data", (buf: Buffer) => {
         const s = [...Array(buf.length)].map((d, i) => buf.readUInt8(i).toFixed(0).padStart(3, " "));
         const p = buf.readInt16LE(2);
-        console.log(`${p.toFixed(0).padStart(3, " ")} - ${s.join(",")}`);
+        if (DEBUG) {
+          console.log(`${p.toFixed(0).padStart(3, " ")} - ${s.join(",")}`);
+        }
         const event = { value: p, timestamp: Date.now() };
         io.emit("Power", event);
         if (session) {
@@ -240,7 +267,9 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
       c.on("data", (buf: Buffer) => {
         if (buf.length < 1) return;
         // const s = [...Array(buf.length)].map((d, i) => buf.readUInt8(i).toFixed(0).padStart(3, " "));
-        console.log(`Heart rate ${buf.readUInt8(1)}`);
+        if (DEBUG) {
+          console.log(`Heart rate ${buf.readUInt8(1)}`);
+        }
         const v = buf.readUInt8(1);
         const event: HeartRateEvent = { value: v, timestamp: Date.now() };
         io.emit("HeartRate", event);
@@ -256,8 +285,12 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
 async function writeErgLoad(c: noble.Characteristic, watt: number) {
   const dv = new DataView(new ArrayBuffer(3));
   dv.setInt8(0, 66);
-  dv.setInt16(1, watt, true);
-  await c.writeAsync(Buffer.from(dv.buffer), true);
+  dv.setUint16(1, watt, true);
+  try {
+    await c.writeAsync(Buffer.from(dv.buffer), true);
+  } catch (e) {
+    console.log(e);
+  }
 }
 
 async function main() {

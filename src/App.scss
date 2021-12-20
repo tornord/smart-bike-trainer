@@ -28,7 +28,7 @@ $box-margin: 10px;
 }
 
 .width1 {
-  height: 13vw;
+  min-height: 13vw;
   flex: 1 1 0;
 }
 
@@ -67,7 +67,7 @@ $box-margin: 10px;
       text-align: center;
     }
     svg {
-      width: 32px;
+      width: 40px;
       .background {
         fill: hsl(20deg, 73%, 57%);
       }
@@ -81,10 +81,12 @@ $box-margin: 10px;
 
 .power-digit {
   flex: 1;
+  min-width: 6.4vw;
 
   .digit {
     text-align: center;
     font-size: 10vw;
     user-select: none;
+    margin-top: -0.6vw;
   }
 }

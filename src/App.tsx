@@ -7,8 +7,9 @@ import { ActivitySession, CadenceEvent, calcCadence, HeartRateEvent, PowerEvent,
 import "./App.scss";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { Plus, Minus } from "./icons";
+import config from "./config.json";
 
-const { max } = Math;
+const { max, min } = Math;
 
 interface Events {
   heartRate: HeartRateEvent[] | null;
@@ -33,7 +34,7 @@ function PlayButton({ session, onFetch }: PlayButtonProps) {
     <button
       type="button"
       onClick={(e) => {
-        fetch(`http://localhost:3001/${buttonState.toLowerCase()}`)
+        fetch(`${config.SERVER_URL}/${buttonState.toLowerCase()}`)
           .then((response: Response) => response.json())
           .then((data) => {
             if (onFetch) {
@@ -101,7 +102,7 @@ function MainView() {
   const [controlPower, setControlPower] = useState(100);
 
   useEffect(() => {
-    const url = `http://localhost:3001/session`;
+    const url = `${config.SERVER_URL}/session`;
     axios.get(url).then(({ data }) => {
       let s: ActivitySession | null = null;
       let e: Events = { heartRate: null, cadence: null, power: null };
@@ -116,7 +117,7 @@ function MainView() {
       }
       setState((state) => ({ index: state.index + 1, session: s, events: e }));
     });
-    const socket = socketIOClient("http://localhost:3001");
+    const socket = socketIOClient(config.SERVER_URL);
     socket.on("HeartRate", (data) => {
       setState((state: State) => {
         if (state.session && !state.session.stopTimestamp) {
@@ -156,6 +157,12 @@ function MainView() {
       });
     });
   }, []);
+  useEffect(() => {
+    const url = `${config.SERVER_URL}/writepower?watt=${controlPower}`;
+    axios.get(url).then(({ data }) => {
+      console.log("writepower", data);
+    });
+  }, [controlPower]);
   // console.log("state index", index, session ? session.records.length : "null");
   let cadence = "";
   let heartRate = "";
@@ -234,7 +241,10 @@ function MainView() {
           <span className="label">Power</span>
           <span className="big-number">{power}</span>
         </div>
-        <PowerControlBox value={controlPower} onChange={(v: number) => setControlPower((p) => max(p + v, 0))} />
+        <PowerControlBox
+          value={controlPower}
+          onChange={(v: number) => setControlPower((p) => min(max(p + v, 0), 999))}
+        />
       </div>
       <div className="row">
         {session && session.records.length >= 0 ? (
