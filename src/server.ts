@@ -14,6 +14,8 @@ app.use(cors());
 
 let session: ActivitySession | null = null;
 let writePowerCharacteristics: noble.Characteristic | null = null;
+const DEFAULT_CONTROL_POWER = 100;
+let controlPower = DEFAULT_CONTROL_POWER;
 
 function writeActivitySession(session: ActivitySession) {
   const dir = "./data";
@@ -55,16 +57,6 @@ app.get("/reset", (req, res) => {
   res.json({});
 });
 
-app.get("/writepower", async (req, res) => {
-  let { watt: wattAsString } = req.query;
-  const watt = Number(wattAsString);
-  if (writePowerCharacteristics) {
-    console.log("writePower", watt);
-    await writeErgLoad(writePowerCharacteristics, watt);
-  }
-  res.json({ connected: writePowerCharacteristics !== null });
-});
-
 const server = app.listen(port, () => {
   console.log(`Listening at http://localhost:${port}`);
 });
@@ -74,6 +66,26 @@ const io = new Server(server, {
     origin: "http://localhost:3000",
     methods: ["GET", "POST"],
   },
+});
+
+io.on('connection', function(socket){
+  console.log('connection');
+  
+  socket.on('disconnect', function () {
+     console.log('disconnect');
+  });
+});
+
+app.get("/writepower", async (req, res) => {
+  let { watt: wattAsString } = req.query;
+  const watt = Number(wattAsString);
+  if (writePowerCharacteristics) {
+    console.log("writePower", watt);
+    await writeErgLoad(writePowerCharacteristics, watt);
+    controlPower = watt;
+    io.emit("ControlPower", {value: watt});
+  }
+  res.json({ connected: writePowerCharacteristics !== null, controlPower });
 });
 
 // setInterval(() => {
@@ -233,6 +245,9 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
         powerService.characteristics.find((d) => d.uuid === "a026e0050a7d4ab397faf1500f9feb8b") ?? null;
       if (writePowerCharacteristics) {
         await writePowerCharacteristics.subscribeAsync();
+        if (controlPower !== DEFAULT_CONTROL_POWER) {
+          await writeErgLoad(writePowerCharacteristics, controlPower);
+        }
       }
     }
     // const characteristics = await powerService.discoverCharacteristicsAsync(["2a63"]);
@@ -288,7 +303,7 @@ async function writeErgLoad(c: noble.Characteristic, watt: number) {
   dv.setInt8(0, 66);
   dv.setUint16(1, watt, true);
   try {
-    await c.writeAsync(Buffer.from(dv.buffer), true);
+    await c.writeAsync(Buffer.from(dv.buffer), false);
   } catch (e) {
     console.log(e);
   }

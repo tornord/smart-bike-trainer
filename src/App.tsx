@@ -158,17 +158,21 @@ function MainView() {
         return { index: state.index + 1, session: state.session, events: state.events };
       });
     });
+    socket.on("ControlPower", (data) => {
+      console.log("ControlPower", data);
+      setControlPower(data.value);
+    });
     // socket.on("connect_failed", function () {
     //   console.log("Sorry, there seems to be an issue with the connection!");
     // });
   }, []);
-  useEffect(() => {
-    const url = `${SERVER_URL}/writepower?watt=${controlPower}`;
-    axios.get(url).then(({ data }) => {
-      console.log("writepower", data);
-    });
-  }, [controlPower]);
-  // console.log("state index", index, session ? session.records.length : "null");
+  // useEffect(() => {
+  //   const url = `${SERVER_URL}/writepower?watt=${controlPower}`;
+  //   axios.get(url).then(({ data }) => {
+  //     console.log("writepower", data);
+  //   });
+  // }, [controlPower]);
+  // // console.log("state index", index, session ? session.records.length : "null");
   let cadence = "";
   let heartRate = "";
   let power = "";
@@ -249,7 +253,15 @@ function MainView() {
         </div>
         <PowerControlBox
           value={controlPower}
-          onChange={(v: number) => setControlPower((p) => min(max(p + v, 0), 999))}
+          onChange={(v: number) => {
+            // setControlPower((p) => min(max(p + v, 0), 999))}
+            const power = min(max(controlPower + v, 0), 999);
+            const url = `${SERVER_URL}/writepower?watt=${power}`;
+            console.log("writepower send", power);
+            axios.get(url).then(({ data }) => {
+              console.log("writepower receive", data);
+            });
+          }}
         />
       </div>
       <div className="row">
