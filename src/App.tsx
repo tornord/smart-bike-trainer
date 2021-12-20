@@ -7,8 +7,8 @@ import { ActivitySession, CadenceEvent, calcCadence, HeartRateEvent, PowerEvent,
 import "./App.scss";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { Plus, Minus } from "./icons";
-import config from "./config.json";
 
+const { REACT_APP_SERVER_URL: SERVER_URL } = process.env as unknown as { REACT_APP_SERVER_URL: string };
 const { max, min } = Math;
 
 interface Events {
@@ -34,7 +34,7 @@ function PlayButton({ session, onFetch }: PlayButtonProps) {
     <button
       type="button"
       onClick={(e) => {
-        fetch(`${config.SERVER_URL}/${buttonState.toLowerCase()}`)
+        fetch(`${process.env.REACT_APP_SERVER_URL}/${buttonState.toLowerCase()}`)
           .then((response: Response) => response.json())
           .then((data) => {
             if (onFetch) {
@@ -102,7 +102,7 @@ function MainView() {
   const [controlPower, setControlPower] = useState(100);
 
   useEffect(() => {
-    const url = `${config.SERVER_URL}/session`;
+    const url = `${SERVER_URL}/session`;
     axios.get(url).then(({ data }) => {
       let s: ActivitySession | null = null;
       let e: Events = { heartRate: null, cadence: null, power: null };
@@ -117,7 +117,7 @@ function MainView() {
       }
       setState((state) => ({ index: state.index + 1, session: s, events: e }));
     });
-    const socket = socketIOClient(config.SERVER_URL);
+    const socket = socketIOClient(SERVER_URL);
     socket.on("HeartRate", (data) => {
       setState((state: State) => {
         if (state.session && !state.session.stopTimestamp) {
@@ -158,7 +158,7 @@ function MainView() {
     });
   }, []);
   useEffect(() => {
-    const url = `${config.SERVER_URL}/writepower?watt=${controlPower}`;
+    const url = `${SERVER_URL}/writepower?watt=${controlPower}`;
     axios.get(url).then(({ data }) => {
       console.log("writepower", data);
     });
