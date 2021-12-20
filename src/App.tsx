@@ -11,6 +11,8 @@ import { Plus, Minus } from "./icons";
 const { REACT_APP_SERVER_URL: SERVER_URL } = process.env as unknown as { REACT_APP_SERVER_URL: string };
 const { max, min } = Math;
 
+console.log("SERVER_URL", SERVER_URL);
+
 interface Events {
   heartRate: HeartRateEvent[] | null;
   cadence: CadenceEvent[] | null;
@@ -156,9 +158,9 @@ function MainView() {
         return { index: state.index + 1, session: state.session, events: state.events };
       });
     });
-    socket.on("connect_failed", function () {
-      console.log("Sorry, there seems to be an issue with the connection!");
-    });
+    // socket.on("connect_failed", function () {
+    //   console.log("Sorry, there seems to be an issue with the connection!");
+    // });
   }, []);
   useEffect(() => {
     const url = `${SERVER_URL}/writepower?watt=${controlPower}`;
@@ -231,6 +233,7 @@ function MainView() {
             }}
           />
           <p>Records: {session && session.records.length >= 0 ? session.records.length : ""}</p>
+          <p>Server URL: {SERVER_URL}</p>
         </div>
         <div className="box width1">
           <span className="label">Heart rate</span>
