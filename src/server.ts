@@ -216,6 +216,8 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
     return;
   }
 
+  console.log(localName, "connected");
+
   if (cadenceService) {
     // 2a5b CSC Measurement
     const c = cadenceService.characteristics.find((d) => d.uuid === "2a5b");
