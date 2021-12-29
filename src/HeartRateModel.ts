@@ -1,6 +1,8 @@
 import { Record } from "./ActivitySession";
 import { numeric, stdev } from "ts-math";
 
+// https://www.cyclinganalytics.com/blog/2018/06/how-does-your-cycling-power-output-compare
+
 const powerScaleFactor = 300;
 const isNumber = (value: any) => typeof value === "number" && isFinite(value);
 
@@ -144,21 +146,33 @@ export class HeartRateModel {
     return res;
   }
 
+  predict(index: number, weights: number[]) {
+    const { x } = this.getSample(index);
+    const res = numeric.dot(weights, x);
+    return res;
+  }
+
+  getSample(index: number) {
+    const tss = this.tss[index].total;
+    const ts = this.tssExponents.map((d) => tss ** d);
+    const ps = this.calcPower(index);
+    if (ps === null) {
+      throw new Error("calcPower failed");
+    }
+    const x = [1, ...ts, ...(ps as number[])];
+    const y = this.records[index].heartRate as number;
+    return { x, y };
+  }
+
   train(maxIndex: number | null = null, params: TrainParameters) {
     const res = this.filterRecords(maxIndex, params);
     const xs: number[][] = [];
     const ys: number[] = [];
     for (let i = 0; i < res.length; i++) {
       const { index } = res[i];
-      const tss = this.tss[index].total;
-      const t = this.tssExponents.map((d) => tss ** d);
-      const p = this.calcPower(index);
-      if (p === null) {
-        throw new Error("calcPower failed");
-      }
-      const x = [1, ...t, ...(p as number[])];
+      const { x, y } = this.getSample(index);
       xs.push(x);
-      ys.push(this.records[index].heartRate as number);
+      ys.push(y);
     }
     const reg = linearRegression(xs, ys);
     return reg;

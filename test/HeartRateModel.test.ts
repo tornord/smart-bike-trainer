@@ -246,7 +246,7 @@ test("HeartRateModel on a fit file", async () => {
   expect(round(res?.stdev as number, 4)).toBe(1.9885);
 });
 
-test.only("HeartRateModel filterRecords", async () => {
+test("HeartRateModel filterRecords", async () => {
   const hrm = new HeartRateModel([], [], 300);
   for (let i = 0; i < 30; i++) {
     const r: Record = {

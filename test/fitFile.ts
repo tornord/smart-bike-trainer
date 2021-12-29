@@ -50,3 +50,11 @@ export function toRecords(fitActivitySession: any) {
   });
   return records;
 }
+
+// async function temp() {
+//   const fitData: any = await readFitFile("7764875397", "./test/data");
+//   const session = fitData.activity.sessions[0];
+//   const recs = toRecords(session);
+//   fs.writeFileSync("./src/data/7764875397_records.json", JSON.stringify(recs, null, 2), "utf8");
+// }
+// temp();
