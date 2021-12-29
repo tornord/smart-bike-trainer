@@ -77,8 +77,8 @@ io.on("connection", function (socket) {
 app.get("/writepower", async (req, res) => {
   let { watt: wattAsString } = req.query;
   const watt = Number(wattAsString);
+  console.log(`writePower ${writePowerCharacteristics ? "power connected" : "no power"}`, watt);
   if (writePowerCharacteristics) {
-    console.log("writePower", watt);
     await writeErgLoad(writePowerCharacteristics, watt);
     controlPower = watt;
     io.emit("ControlPower", { value: watt });
@@ -329,7 +329,7 @@ async function main() {
         if (!localName || !serviceUuids) return;
         console.log(uuid, localName, address, serviceUuids);
         if (!peripheral.connectable) return;
-        const wantedUuid = ["180d", "1816", "1818"];
+        const wantedUuid = ["180d", "1816", "1818"]; // hr, cad, pwr
         if (!(serviceUuids as string[]).some((d) => wantedUuid.find((e) => e === d))) return;
 
         await connectPeripheral(peripheral, localName, true);

@@ -156,21 +156,21 @@ function MainView() {
         return { index: state.index + 1, session: state.session, events: state.events };
       });
     });
-    socket.on("ControlPower", (data) => {
-      console.log("ControlPower", data);
-      setControlPower(data.value);
-    });
+    // socket.on("ControlPower", (data) => {
+    //   console.log("ControlPower", data);
+    //   setControlPower(data.value);
+    // });
     // socket.on("connect_failed", function () {
     //   console.log("Sorry, there seems to be an issue with the connection!");
     // });
   }, []);
-  // useEffect(() => {
-  //   const url = `${SERVER_URL}/writepower?watt=${controlPower}`;
-  //   axios.get(url).then(({ data }) => {
-  //     console.log("writepower", data);
-  //   });
-  // }, [controlPower]);
-  // // console.log("state index", index, session ? session.records.length : "null");
+  useEffect(() => {
+    const url = `${SERVER_URL}:${SERVER_PORT}/writepower?watt=${controlPower}`;
+    axios.get(url).then(({ data }) => {
+      console.log("writepower", data);
+    });
+  }, [controlPower]);
+  // console.log("state index", index, session ? session.records.length : "null");
   let cadence = "";
   let heartRate = "";
   let power = "";
@@ -213,6 +213,7 @@ function MainView() {
       }
     }
   }
+  console.log("controlPower", controlPower);
   return (
     <div className="mainview">
       <div className="row">
@@ -235,7 +236,9 @@ function MainView() {
             }}
           />
           <p>Records: {session && session.records.length >= 0 ? session.records.length : ""}</p>
-          <p>Server URL: {SERVER_URL}:{SERVER_PORT}</p>
+          <p>
+            Server URL: {SERVER_URL}:{SERVER_PORT}
+          </p>
         </div>
         <div className="box width1">
           <span className="label">Heart rate</span>
@@ -251,15 +254,7 @@ function MainView() {
         </div>
         <PowerControlBox
           value={controlPower}
-          onChange={(v: number) => {
-            // setControlPower((p) => min(max(p + v, 0), 999))}
-            const power = min(max(controlPower + v, 0), 999);
-            const url = `${SERVER_URL}:${SERVER_PORT}/writepower?watt=${power}`;
-            console.log("writepower send", power);
-            axios.get(url).then(({ data }) => {
-              console.log("writepower receive", data);
-            });
-          }}
+          onChange={(v: number) => setControlPower((p) => min(max(p + v, 0), 999))}
         />
       </div>
       <div className="row">
