@@ -1,6 +1,5 @@
 import { TimeSeriesChart } from "./TimeSeriesChart";
-import { useEffect, useMemo } from "react";
-import { readFitFile } from "./fitFile";
+import { useMemo } from "react";
 import records from "./data/7764875397_records.json";
 import { HeartRateModel } from "./HeartRateModel";
 
@@ -41,7 +40,7 @@ export function ChartTest() {
         startTimestamp={0}
         series={[
           { timestamps: indicies.map((d) => hrm.records[d.index].elapsedTime * 1000), values: res.ys },
-          { timestamps: hrm.records.map((d) => d.elapsedTime * 1000), values: records.map((d) => d.heartRate) },
+          { timestamps: hrm.records.map((d) => d.elapsedTime * 1000), values: records.map((d) => d.heartRate ?? 0) },
         ]}
       />
     </div>

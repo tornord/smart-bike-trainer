@@ -4,8 +4,8 @@ import AdmZip from "adm-zip";
 import FitParser from "fit-file-parser";
 import { Record } from "./ActivitySession";
 
-export async function readFitFile(activityId: string) {
-  let fn = `./data/${activityId}.zip`;
+export async function readFitFile(activityId: string, dataPath: string = "./data") {
+  let fn = `${dataPath}/${activityId}.zip`;
   let buf;
   buf = fs.readFileSync(fn);
   const zip = new AdmZip(buf);
@@ -40,8 +40,8 @@ export function toRecords(fitActivitySession: any) {
         elapsedTime: r.elapsed_time,
         lapIndex: i,
         power: typeof r.power === "number" ? r.power : null,
-        heartRate: r.heart_rate,
-        cadence: r.cadence,
+        heartRate: typeof r.heart_rate === "number" ? r.heart_rate : null,
+        cadence: typeof r.cadence === "number" ? r.cadence : null,
         leftRightBalance: r.left_right_balance
           ? r.left_right_balance.value * (r.left_right_balance.right ? 1 : -1)
           : -1,
@@ -52,9 +52,10 @@ export function toRecords(fitActivitySession: any) {
 }
 
 // async function temp() {
-//   const fitData: any = await readFitFile("7764875397", "./test/data");
+//   const activityId = "8020215977";
+//   const fitData: any = await readFitFile(activityId, "./data");
 //   const session = fitData.activity.sessions[0];
 //   const recs = toRecords(session);
-//   fs.writeFileSync("./src/data/7764875397_records.json", JSON.stringify(recs, null, 2), "utf8");
+//   fs.writeFileSync(`./src/data/${activityId}_records.json`, JSON.stringify(recs, null, 2), "utf8");
 // }
 // temp();
