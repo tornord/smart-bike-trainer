@@ -1,5 +1,4 @@
 import { ActivitySession, indexOf, Record, calcCadence, CadenceEvent } from "./ActivitySession";
-import fs from "fs";
 
 test("indexOf", () => {
   let xs = [...Array(50)].map((d, i) => i);
@@ -30,43 +29,41 @@ test("create ActivitySession", () => {
 });
 
 test("pushHeartRateEvent", () => {
-  const st = 100;
+  const st = 10000;
   let s = new ActivitySession(st);
-  s.recordsTimestep = 10;
-  s.pushHeartRateEvent({ timestamp: 125, value: 60 });
+  s.pushHeartRateEvent({ timestamp: 12500, value: 60 });
   const toString = (s: ActivitySession) => s.records.map((d: Record) => d.heartRate ?? "null").join(",");
   expect(toString(s)).toBe("null,60,60");
-  s.pushHeartRateEvent({ timestamp: 151, value: 65 });
+  s.pushHeartRateEvent({ timestamp: 15100, value: 65 });
   expect(toString(s)).toBe("null,60,60,null,65,65");
-  s.pushHeartRateEvent({ timestamp: 157, value: 70 });
+  s.pushHeartRateEvent({ timestamp: 15700, value: 70 });
   expect(toString(s)).toBe("null,60,60,null,65,70");
-  s.pushHeartRateEvent({ timestamp: 169, value: 75 });
+  s.pushHeartRateEvent({ timestamp: 16900, value: 75 });
   expect(toString(s)).toBe("null,60,60,null,65,70,75");
-  s.pushHeartRateEvent({ timestamp: 168, value: 75 });
+  s.pushHeartRateEvent({ timestamp: 16800, value: 75 });
   expect(toString(s)).toBe("null,60,60,null,65,70,75");
-  s.pushHeartRateEvent({ timestamp: 170, value: 80 });
+  s.pushHeartRateEvent({ timestamp: 17000, value: 80 });
   expect(toString(s)).toBe("null,60,60,null,65,70,75,80");
-  s.pushHeartRateEvent({ timestamp: 175, value: 0 });
+  s.pushHeartRateEvent({ timestamp: 17500, value: 0 });
   expect(toString(s)).toBe("null,60,60,null,65,70,75,80");
-  s.stopTimestamp = 180;
-  s.pushHeartRateEvent({ timestamp: 185, value: 85 });
+  s.stopTimestamp = 18000;
+  s.pushHeartRateEvent({ timestamp: 18500, value: 85 });
   expect(toString(s)).toBe("null,60,60,null,65,70,75,80");
 });
 
 test("pushPowerEvent", () => {
-  const st = 200;
+  const st = 4000;
   let s = new ActivitySession(st);
-  s.recordsTimestep = 50;
   const toString = (s: ActivitySession) => s.records.map((d: Record) => d.power ?? "null").join(",");
-  s.pushPowerEvent({ timestamp: 195, value: 300 });
+  s.pushPowerEvent({ timestamp: 3900, value: 300 });
   expect(toString(s)).toBe("");
-  s.pushPowerEvent({ timestamp: 207, value: 300 });
+  s.pushPowerEvent({ timestamp: 4140, value: 300 });
   expect(toString(s)).toBe("300");
-  s.pushPowerEvent({ timestamp: 325, value: 310 });
+  s.pushPowerEvent({ timestamp: 6500, value: 310 });
   expect(toString(s)).toBe("300,310,310");
-  s.pushPowerEvent({ timestamp: 349, value: 315 });
+  s.pushPowerEvent({ timestamp: 6980, value: 315 });
   expect(toString(s)).toBe("300,310,315");
-  s.pushPowerEvent({ timestamp: 350, value: 320 });
+  s.pushPowerEvent({ timestamp: 7000, value: 320 });
   expect(toString(s)).toBe("300,310,315,320");
 });
 

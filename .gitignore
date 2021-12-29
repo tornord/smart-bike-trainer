@@ -106,3 +106,5 @@ dist
 data/
 build/
 yarn.lock
+test/package-lock.json
+.DS_Store

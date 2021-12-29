@@ -24,7 +24,18 @@
       "runtimeExecutable": "${env:HOME}/.nvm/versions/node/v14.18.1/bin/node"
     },
     {
-      "name": "Run current node ts register",
+      "name": "Jest current",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/node_modules/jest/bin/jest.js",
+      "cwd": "${workspaceFolder}/test",
+      "args": ["${file}"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "runtimeExecutable": "${env:HOME}/.nvm/versions/node/v14.18.1/bin/node",
+    },
+    {
+      "name": "Run current node ts register (not used)",
       "type": "node",
       "request": "launch",
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],

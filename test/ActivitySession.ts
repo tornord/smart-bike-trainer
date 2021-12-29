@@ -1,7 +1,7 @@
 const { floor } = Math;
 
 export interface Record {
-  elapsedTime: number;
+  elapsedTime: number; // In seconds
   lapIndex: number;
   power: number | null;
   heartRate: number | null;
@@ -53,22 +53,20 @@ export class ActivitySession {
     this.startTimestamp = startTimestamp;
     this.stopTimestamp = null;
     this.currentLapIndex = 0;
-    this.recordsTimestep = 1000;
   }
   records: Record[];
   heartRateEvents: HeartRateEvent[];
   cadenceEvents: CadenceEvent[];
   powerEvents: PowerEvent[];
   startTimestamp: number;
-  stopTimestamp: number|null;
+  stopTimestamp: number | null;
   currentLapIndex: number;
-  recordsTimestep: number;
 
   createRecords(maxIndex: number): void {
     if (maxIndex > this.records.length - 1) {
       for (let i = this.records.length; i <= maxIndex; i++) {
         this.records.push({
-          elapsedTime: (i + 1) * this.recordsTimestep,
+          elapsedTime: i + 1,
           lapIndex: this.currentLapIndex,
           power: null,
           heartRate: null,
@@ -80,7 +78,7 @@ export class ActivitySession {
   }
 
   isValidEvent(timestamp: number, events: HeartRateEvent[] | PowerEvent[] | CadenceEvent[]): boolean {
-    if (this.stopTimestamp!==null) return false;
+    if (this.stopTimestamp !== null) return false;
     if (events.length > 0 && timestamp <= events[events.length - 1].timestamp) return false;
     if (timestamp < this.startTimestamp) return false;
     return true;
@@ -89,8 +87,7 @@ export class ActivitySession {
   pushHeartRateEvent(event: HeartRateEvent) {
     if (!this.isValidEvent(event.timestamp, this.heartRateEvents)) return;
     this.heartRateEvents.push(event);
-    const elapsedTime = event.timestamp - this.startTimestamp;
-    const index = floor(elapsedTime / this.recordsTimestep);
+    const index = floor((event.timestamp - this.startTimestamp) / 1000);
     this.createRecords(index);
     if (event.value === 0) {
       return;
@@ -104,8 +101,7 @@ export class ActivitySession {
   pushPowerEvent(event: PowerEvent) {
     if (!this.isValidEvent(event.timestamp, this.powerEvents)) return;
     this.powerEvents.push(event);
-    const elapsedTime = event.timestamp - this.startTimestamp;
-    const index = floor(elapsedTime / this.recordsTimestep);
+    const index = floor((event.timestamp - this.startTimestamp) / 1000);
     this.createRecords(index);
     if (index - 1 >= 0 && this.records[index - 1].power === null) {
       this.records[index - 1].power = event.value;
@@ -116,8 +112,7 @@ export class ActivitySession {
   pushCadenceEvent(event: CadenceEvent) {
     if (!this.isValidEvent(event.timestamp, this.cadenceEvents)) return;
     this.cadenceEvents.push(event);
-    const elapsedTime = event.timestamp - this.startTimestamp;
-    const index = floor(elapsedTime / this.recordsTimestep);
+    const index = floor((event.timestamp - this.startTimestamp) / 1000);
     this.createRecords(index);
     const value = calcCadence(this.cadenceEvents.length - 1, this.cadenceEvents);
     if (index - 1 >= 0 && this.records[index - 1].cadence === null) {
