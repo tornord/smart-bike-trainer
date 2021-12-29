@@ -213,7 +213,7 @@ function MainView() {
       }
     }
   }
-  console.log("controlPower", controlPower);
+  // console.log("controlPower", controlPower);
   return (
     <div className="mainview">
       <div className="row">
