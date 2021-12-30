@@ -12,7 +12,7 @@ app.use(cors());
 
 let session: ActivitySession | null = null;
 let writePowerCharacteristics: noble.Characteristic | null = null;
-const DEFAULT_CONTROL_POWER = 100;
+const DEFAULT_CONTROL_POWER = 50;
 let controlPower = DEFAULT_CONTROL_POWER;
 
 function writeActivitySession(session: ActivitySession) {

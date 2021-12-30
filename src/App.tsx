@@ -144,7 +144,7 @@ function MainView() {
     session: null,
     events: { heartRate: null, cadence: null, power: null },
   } as State);
-  const [controlPower, setControlPower] = useState(100);
+  const [controlPower, setControlPower] = useState(50);
   const [model, setModel] = useState(null as unknown as Model);
 
   useEffect(() => {
