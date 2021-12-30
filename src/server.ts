@@ -328,8 +328,8 @@ async function main() {
     noble.on("discover", async (peripheral) => {
       // await noble.stopScanningAsync();
       try {
-        const { advertisement, uuid, addressType, address } = peripheral;
-        if (!advertisement || addressType === "unknown") return;
+        const { advertisement, uuid, address } = peripheral;
+        if (!advertisement) return;
         const { localName, serviceUuids } = advertisement;
         if (!localName || !serviceUuids) return;
         console.log(uuid, localName, address, serviceUuids);
