@@ -216,6 +216,11 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
     return;
   }
 
+  if (heartRateService && !localName.startsWith("TICKR X")) {
+    delete devices[peripheral.id];
+    return;
+  }
+
   console.log(localName, "connected");
 
   if (cadenceService) {
