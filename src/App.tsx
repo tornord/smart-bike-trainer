@@ -316,7 +316,10 @@ function MainView() {
           />
           <p>Records: {session && session.records.length >= 0 ? session.records.length : ""}</p>
           <p>
-            Server URL: {SERVER_URL}:{SERVER_PORT}
+            Server URL:{" "}
+            <a href={`${SERVER_URL}:${SERVER_PORT}`}>
+              {SERVER_URL}:{SERVER_PORT}
+            </a>
           </p>
         </div>
         <div className="box width1">
