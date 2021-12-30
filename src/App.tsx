@@ -8,6 +8,7 @@ import "./App.scss";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { Plus, Minus } from "./icons";
 import { SERVER_URL, SERVER_PORT } from "./config";
+import { HeartRateModel, RecordIndex } from "./HeartRateModel";
 
 const { max, min } = Math;
 
@@ -26,6 +27,49 @@ interface State {
 interface PlayButtonProps {
   session: ActivitySession | null;
   onFetch: (responceData: any, buttonState: string) => void;
+}
+
+interface Model {
+  ys: number[];
+  hrm: HeartRateModel;
+  indicies: RecordIndex[];
+}
+
+function chartSeries(session: ActivitySession, model: Model) {
+  if (!session || session.records.length === 0) return [];
+  const timestamps = session.records.map((d) => d.elapsedTime * 1000);
+  const powerValues = session.records.map((d) => d.power ?? 0);
+  // const heartRates = session.records.map((d) => d.heartRate ?? 0);
+  const res = [];
+  if (model && model.hrm.records.length > 0) {
+    res.push({
+      timestamps: model.indicies.map((d) => model.hrm.records[d.index].elapsedTime * 1000),
+      values: model.ys,
+      color: "#e1415b",
+    });
+  }
+  res.push({ ...toSeries(session.records, "heartRate"), color: "#e17741" });
+  res.push({
+    secondaryAxis: true,
+    timestamps: [...timestamps, ...timestamps.slice().reverse(), timestamps[0]],
+    values: [...powerValues, ...powerValues.map((d) => 0), powerValues[0]],
+    color: "none",
+    fillColor: "rgba(10, 101, 158, 50%)",
+  });
+  return res;
+}
+
+function useTick(delay: number, initialIndex: number) {
+  const [tick, setTick] = useState(initialIndex ? initialIndex : 0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        setTick((tick) => tick + 1);
+      }
+    }, delay);
+    return () => clearInterval(interval);
+  }, []);
+  return tick;
 }
 
 function PlayButton({ session, onFetch }: PlayButtonProps) {
@@ -57,7 +101,7 @@ function toSeries(records: Record[], field: string) {
   const values = [];
   for (let i = 0; i <= lastNonNullIndex; i++) {
     const r = records[i];
-    timestamps.push(r.elapsedTime);
+    timestamps.push(r.elapsedTime * 1000);
     values.push(Number((r as any)[field]));
   }
   return { timestamps, values };
@@ -94,12 +138,14 @@ function PowerControlBox({ value, onChange }: { value: number; onChange: (v: num
 }
 
 function MainView() {
+  const tick = useTick(15000, 0);
   const [{ session, events }, setState] = useState({
     index: 0,
     session: null,
     events: { heartRate: null, cadence: null, power: null },
   } as State);
   const [controlPower, setControlPower] = useState(100);
+  const [model, setModel] = useState(null as unknown as Model);
 
   useEffect(() => {
     const url = `${SERVER_URL}:${SERVER_PORT}/session`;
@@ -213,7 +259,40 @@ function MainView() {
       }
     }
   }
+  useEffect(() => {
+    if (!session || session.records.length === 0) return;
+    setModel(() => {
+      const emaDefinitions = [
+        { averageSeconds: 15, powerExponent: 1 },
+        { averageSeconds: 30, powerExponent: 1 },
+        { averageSeconds: 60, powerExponent: 1 },
+        { averageSeconds: 120, powerExponent: 1 },
+        { averageSeconds: 240, powerExponent: 1 },
+        { averageSeconds: 15, powerExponent: 2 },
+        { averageSeconds: 30, powerExponent: 2 },
+        { averageSeconds: 60, powerExponent: 2 },
+        { averageSeconds: 120, powerExponent: 2 },
+        { averageSeconds: 240, powerExponent: 2 },
+        { averageSeconds: 240, powerExponent: 4 },
+      ];
+      const ftp = 290;
+      const tssExponents = [1, 0.5];
+      const hrm = new HeartRateModel(emaDefinitions, tssExponents, ftp);
+      hrm.addRecords(session.records);
+      const params = {
+        startTime: 60, //480
+        endTime: 7200,
+        heartRatePausTime: 30, //240
+        startHeartRate: 40,
+        pausStartTime: 5,
+      };
+      const indicies = hrm.filterRecords(null, params);
+      const res = hrm.train(null, params);
+      return { hrm, ys: res.ys, indicies };
+    });
+  }, [tick]);
   // console.log("controlPower", controlPower);
+  // console.log("tick", tick);
   return (
     <div className="mainview">
       <div className="row">
@@ -258,9 +337,9 @@ function MainView() {
         />
       </div>
       <div className="row">
-        {session && session.records.length >= 0 ? (
+        {session && session.records.length > 0 ? (
           <div className="box width3">
-            <TimeSeriesChart startTimestamp={0} series={[toSeries(session.records, "heartRate")]} />
+            <TimeSeriesChart startTimestamp={0} series={chartSeries(session, model)} />
           </div>
         ) : null}
       </div>

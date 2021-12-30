@@ -29,7 +29,7 @@ interface TrainParameters {
   pausStartTime: number;
 }
 
-interface RecordIndex {
+export interface RecordIndex {
   index: number;
   elapsedTime: number;
   currentStartTime: number;
@@ -174,6 +174,7 @@ export class HeartRateModel {
       xs.push(x);
       ys.push(y);
     }
+    if (xs.length === 0) return { weights: [], ys: [], stdev: 0 };
     const reg = linearRegression(xs, ys);
     return reg;
   }
