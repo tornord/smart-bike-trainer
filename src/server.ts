@@ -70,11 +70,17 @@ const io = new Server(server, {
   },
 });
 
+let lastClientDisconnectTimestamp: number = 0;
+
 io.on("connection", function (socket) {
   console.log("connection");
+  lastClientDisconnectTimestamp = 0;
 
   socket.on("disconnect", function () {
-    console.log("disconnect");
+    console.log("disconnect", io.engine.clientsCount);
+    if (io.engine.clientsCount === 0) {
+      lastClientDisconnectTimestamp = Date.now();
+    }
   });
 });
 
@@ -102,17 +108,6 @@ app.get("/activities/:activityId", (req, res) => {
   const data = JSON.parse(fs.readFileSync(fn, "utf8"));
   res.json(data);
 });
-
-// setInterval(() => {
-//   if (session) {
-//     const event: PowerEvent = { timestamp: Date.now(), value: 220 + Math.floor(100 * Math.random()) };
-//     session.pushPowerEvent(event);
-//     io.emit("Power", event);
-//   }
-// }, 1105);
-
-// Run this on Linux (to avoid running as sudo):
-// sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
 
 // "FF:D8:97:AF:08:34"
 // "a026e005-0a7d-4ab3-97fa-f1500f9feb8b"
@@ -201,6 +196,7 @@ async function readValue(
 }
 
 setInterval(async () => {
+  // console.log("tick", io.engine.clientsCount, lastClientDisconnectTimestamp);
   for (let [id, device] of Object.entries(devices)) {
     const { peripheral } = device;
     const { localName } = peripheral.advertisement;
@@ -224,20 +220,15 @@ function setLastEventTime(peripheral: noble.Peripheral) {
 }
 
 async function connectHeartRateService() {
-  // const characteristics = await heartRateService.discoverCharacteristicsAsync(["2a37"]);
   const c = services.heartRate.service?.characteristics.find((d) => d.uuid === "2a37");
-  // if (!characteristics || characteristics.length !== 1) return;
-  // const c = characteristics[0];
   if (c) {
-    // value = await c.readAsync();
     await c.subscribeAsync();
     c.on("data", (buf: Buffer) => {
       if (buf.length < 1) return;
-      // const s = [...Array(buf.length)].map((d, i) => buf.readUInt8(i).toFixed(0).padStart(3, " "));
-      if (DEBUG) {
-        console.log(`Heart rate ${buf.readUInt8(1)}`);
-      }
       const v = buf.readUInt8(1);
+      if (DEBUG) {
+        console.log(`Heart rate ${v}`);
+      }
       const event: HeartRateEvent = { value: v, timestamp: Date.now() };
       io.emit("HeartRate", event);
       if (session) {
@@ -251,11 +242,7 @@ async function connectHeartRateService() {
 async function connectCadenceService() {
   // 2a5b CSC Measurement
   const c = services.cadence.service?.characteristics.find((d) => d.uuid === "2a5b");
-  // const characteristics = await cadenceService.discoverCharacteristicsAsync(["2a5b"]);
-  // if (!characteristics || characteristics.length !== 1) return;
-  // const c = characteristics[0];
   if (c) {
-    // value = await c.readAsync();
     await c.subscribeAsync();
     c.on("data", (v: Buffer) => {
       const s = [0, 1, 2, 3, 4].map((d) => v.readUInt8(d));
@@ -275,10 +262,6 @@ async function connectCadenceService() {
 }
 
 async function connectPowerService() {
-  //(localName.startsWith("KICKR SNAP")) {
-  // console.log("discoverServicesAsync", s);
-  // 2a5b CSC Measurement
-  // 1818 2a63
   const powerService = services.power.service as noble.Service;
   const c = powerService.characteristics.find((d) => d.uuid === "2a63");
   writePowerCharacteristics =
@@ -290,11 +273,7 @@ async function connectPowerService() {
     }
   }
 
-  // const characteristics = await powerService.discoverCharacteristicsAsync(["2a63"]);
-  // if (!characteristics || characteristics.length !== 1) return;
-  // const c = characteristics[0];
   if (c) {
-    // value = await c.readAsync();
     await c.subscribeAsync();
     c.on("data", (buf: Buffer) => {
       const s = [...Array(buf.length)].map((d, i) => buf.readUInt8(i).toFixed(0).padStart(3, " "));
@@ -314,7 +293,11 @@ async function connectPowerService() {
 
 async function connectPeripheral(peripheral: noble.Peripheral, localName: string, readDeviceInfo: boolean) {
   console.log(localName, "trying to connect");
-  await peripheral.connectAsync();
+  try {
+    await peripheral.connectAsync();
+  } catch (e) {
+    console.log(e);
+  }
 
   const { services: allServices } = await peripheral.discoverAllServicesAndCharacteristicsAsync();
 
@@ -327,16 +310,19 @@ async function connectPeripheral(peripheral: noble.Peripheral, localName: string
 
   if (services.heartRate.service && services.heartRate.peripheral?.uuid === peripheral.uuid) {
     reconnectedService = true;
+    services.heartRate.service = heartRateService as noble.Service;
     await connectHeartRateService();
   }
 
   if (services.cadence.service && services.cadence.peripheral?.uuid === peripheral.uuid) {
     reconnectedService = true;
+    services.cadence.service = cadenceService as noble.Service;
     await connectCadenceService();
   }
 
   if (services.power.service && services.power.peripheral?.uuid === peripheral.uuid) {
     reconnectedService = true;
+    services.power.service = powerService as noble.Service;
     await connectPowerService();
   }
 
@@ -431,7 +417,7 @@ async function main() {
         if (!localName || !serviceUuids) return;
         console.log(uuid, localName, address, serviceUuids);
         if (!peripheral.connectable) return;
-        const wantedUuid = ["180d", "1816", "1818"]; // hr, cad, pwr
+        const wantedUuid = ["180d", "1816", "1818", "180f"]; // hr, cad, pwr
         if (!(serviceUuids as string[]).some((d) => wantedUuid.find((e) => e === d))) return;
 
         await connectPeripheral(peripheral, localName, true);
