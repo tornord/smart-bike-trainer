@@ -44,6 +44,16 @@ export function calcCadence(index: number, cadenceEvents: CadenceEvent[]): numbe
   return null;
 }
 
+export function fromJson(json: any) {
+  const res = new ActivitySession(json.startTimestamp);
+  res.stopTimestamp = json.stopTimestamp;
+  res.records = json.records;
+  res.heartRateEvents = json.heartRateEvents;
+  res.powerEvents = json.powerEvents;
+  res.cadenceEvents = json.cadenceEvents;
+  return res;
+}
+
 export class ActivitySession {
   constructor(startTimestamp: number) {
     this.records = [];

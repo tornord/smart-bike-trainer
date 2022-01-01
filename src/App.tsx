@@ -1,9 +1,17 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, PathRouteProps, useParams } from "react-router-dom";
 import { ChartTest } from "./ChartTest";
 import socketIOClient from "socket.io-client";
-import { ActivitySession, CadenceEvent, calcCadence, HeartRateEvent, PowerEvent, Record } from "./ActivitySession";
+import {
+  ActivitySession,
+  CadenceEvent,
+  calcCadence,
+  fromJson,
+  HeartRateEvent,
+  PowerEvent,
+  Record,
+} from "./ActivitySession";
 import "./App.scss";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { Plus, Minus } from "./icons";
@@ -35,7 +43,7 @@ interface Model {
   indicies: RecordIndex[];
 }
 
-function chartSeries(session: ActivitySession, model: Model) {
+function chartSeries(session: ActivitySession, model: Model | null) {
   if (!session || session.records.length === 0) return [];
   const timestamps = session.records.map((d) => d.elapsedTime * 1000);
   const powerValues = session.records.map((d) => d.power ?? 0);
@@ -137,6 +145,11 @@ function PowerControlBox({ value, onChange }: { value: number; onChange: (v: num
   );
 }
 
+function ActivityChart({ activitySession }: { activitySession: ActivitySession }) {
+  const series = chartSeries(activitySession, null);
+  return <TimeSeriesChart startTimestamp={0} series={series} />;
+}
+
 function MainView() {
   const tick = useTick(15000, 0);
   const [{ session, events }, setState] = useState({
@@ -153,13 +166,14 @@ function MainView() {
       let s: ActivitySession | null = null;
       let e: Events = { heartRate: null, cadence: null, power: null };
       if (data !== null) {
-        const ss = data as unknown as ActivitySession;
-        s = new ActivitySession(ss.startTimestamp);
-        s.stopTimestamp = ss.stopTimestamp;
-        s.records = ss.records;
-        s.heartRateEvents = ss.heartRateEvents;
-        s.powerEvents = ss.powerEvents;
-        s.cadenceEvents = ss.cadenceEvents;
+        s = fromJson(data);
+        // const ss = data as unknown as ActivitySession;
+        // s = new ActivitySession(ss.startTimestamp);
+        // s.stopTimestamp = ss.stopTimestamp;
+        // s.records = ss.records;
+        // s.heartRateEvents = ss.heartRateEvents;
+        // s.powerEvents = ss.powerEvents;
+        // s.cadenceEvents = ss.cadenceEvents;
       }
       setState((state) => ({ index: state.index + 1, session: s, events: e }));
     });
@@ -350,11 +364,32 @@ function MainView() {
   );
 }
 
+function ActivityView() {
+  let { id } = useParams();
+  const [activitySession, setActivitySession] = useState(null as null | ActivitySession);
+  useEffect(() => {
+    const url = `${SERVER_URL}:${SERVER_PORT}/activities/${id}`;
+    axios.get(url).then(({ data }) => {
+      if (!data || !data.startTimestamp) {
+        setActivitySession(null);
+        return;
+      }
+      const s = fromJson(data);
+      setActivitySession(s);
+    });
+  }, [id]);
+  console.log(activitySession?.startTimestamp ?? "");
+  return (
+    <div className="activityview">{activitySession ? <ActivityChart activitySession={activitySession} /> : null}</div>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/charttest" element={<ChartTest />} />
+        <Route path="/activities/:id" element={<ActivityView />} />
         <Route path="/" element={<MainView />} />
       </Routes>
     </BrowserRouter>
