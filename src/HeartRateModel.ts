@@ -35,6 +35,13 @@ export interface RecordIndex {
   currentStartTime: number;
 }
 
+export interface TrainResult {
+  indicies: RecordIndex[];
+  predictedHeartRates: number[];
+  weights: number[];
+  stdev: number;
+}
+
 export function linearRegression(xs: number[][], ys: number[]) {
   const xsT = numeric.transpose(xs);
   const xsTxs = numeric.dot(xsT, xs);
@@ -45,15 +52,43 @@ export function linearRegression(xs: number[][], ys: number[]) {
   return { weights, ys: resYs, stdev: stdev(errors) };
 }
 
+const defaultEmaDefinitions = [
+  { averageSeconds: 15, powerExponent: 1 },
+  { averageSeconds: 30, powerExponent: 1 },
+  { averageSeconds: 60, powerExponent: 1 },
+  { averageSeconds: 120, powerExponent: 1 },
+  { averageSeconds: 240, powerExponent: 1 },
+  { averageSeconds: 15, powerExponent: 2 },
+  { averageSeconds: 30, powerExponent: 2 },
+  { averageSeconds: 60, powerExponent: 2 },
+  { averageSeconds: 120, powerExponent: 2 },
+  { averageSeconds: 240, powerExponent: 2 },
+  { averageSeconds: 240, powerExponent: 4 },
+];
+const defaultFtp = 300;
+const defaultTssExponents = [1, 0.5];
+const defaultTrainParams = {
+  startTime: 480, //480
+  endTime: 7200,
+  heartRatePausTime: 240, //240
+  startHeartRate: 115,
+  pausStartTime: 5,
+};
+
 export class HeartRateModel {
-  constructor(emaDefinitions: EmaDefinition[], tssExponents: number[], ftp: number) {
-    this.emaDefinitions = emaDefinitions;
-    this.emaDecayFactors = emaDefinitions.map((d) => 1 - 2 / (d.averageSeconds + 1));
-    this.tssExponents = tssExponents;
+  constructor(
+    emaDefinitions: EmaDefinition[] | null = null,
+    tssExponents: number[] | null = null,
+    ftp: number | null = null
+  ) {
+    this.emaDefinitions = emaDefinitions ?? defaultEmaDefinitions;
+    this.emaDecayFactors = this.emaDefinitions.map((d) => 1 - 2 / (d.averageSeconds + 1));
+    this.tssExponents = tssExponents ?? defaultTssExponents;
+    this.ftp = ftp ?? defaultFtp;
     this.records = [];
     this.powerEmas = [];
     this.tss = [];
-    this.ftp = ftp;
+    this.trainResult = null;
   }
 
   emaDefinitions: EmaDefinition[];
@@ -63,6 +98,7 @@ export class HeartRateModel {
   powerEmas: PowerEmas[];
   tss: TssRecord[];
   ftp: number;
+  trainResult: TrainResult | null;
 
   calcPower(index: number | null = null) {
     if (index === null) {
@@ -119,8 +155,8 @@ export class HeartRateModel {
     this.tss.push(tr);
   }
 
-  filterRecords(maxIndex: number | null = null, params: TrainParameters): RecordIndex[] {
-    const { startTime, endTime, heartRatePausTime, startHeartRate, pausStartTime } = params;
+  filterRecords(maxIndex: number | null = null, params: TrainParameters | null = null): RecordIndex[] {
+    const { startTime, endTime, heartRatePausTime, startHeartRate, pausStartTime } = params ?? defaultTrainParams;
     if (maxIndex === null) {
       maxIndex = this.records.length - 1;
     }
@@ -164,18 +200,20 @@ export class HeartRateModel {
     return { x, y };
   }
 
-  train(maxIndex: number | null = null, params: TrainParameters) {
-    const res = this.filterRecords(maxIndex, params);
+  train(maxIndex: number | null = null, params: TrainParameters | null = null) {
+    this.trainResult = null;
+    const trainIndicies = this.filterRecords(maxIndex, params);
     const xs: number[][] = [];
     const ys: number[] = [];
-    for (let i = 0; i < res.length; i++) {
-      const { index } = res[i];
+    for (let i = 0; i < trainIndicies.length; i++) {
+      const { index } = trainIndicies[i];
       const { x, y } = this.getSample(index);
       xs.push(x);
       ys.push(y);
     }
-    if (xs.length === 0) return { weights: [], ys: [], stdev: 0 };
+    if (xs.length === 0) return null;
     const reg = linearRegression(xs, ys);
-    return reg;
+    this.trainResult = { indicies: trainIndicies, predictedHeartRates: reg.ys, stdev: reg.stdev, weights: reg.weights };
+    return this.trainResult
   }
 }

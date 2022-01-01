@@ -246,6 +246,16 @@ test("HeartRateModel on a fit file", async () => {
   expect(round(res?.stdev as number, 4)).toBe(1.9885);
 });
 
+test("HeartRateModel fit file with default params", async () => {
+  const hrm = new HeartRateModel();
+  const fitData: any = await readFitFile("7764875397");
+  const session = fitData.activity.sessions[0];
+  const recs = toRecords(session);
+  hrm.addRecords(recs);
+  const res = hrm.train();
+  expect(round(res?.stdev as number, 4)).toBe(1.9885);
+});
+
 test("HeartRateModel filterRecords", async () => {
   const hrm = new HeartRateModel([], [], 300);
   for (let i = 0; i < 30; i++) {

@@ -37,22 +37,27 @@ interface PlayButtonProps {
   onFetch: (responceData: any, buttonState: string) => void;
 }
 
-interface Model {
-  ys: number[];
-  hrm: HeartRateModel;
-  indicies: RecordIndex[];
+// interface Model {
+//   ys: number[];
+//   hrm: HeartRateModel;
+//   indicies: RecordIndex[];
+// }
+
+interface ActivitySessionAndHeartRateModel {
+  activitySession: ActivitySession;
+  heartRateModel: HeartRateModel;
 }
 
-function chartSeries(session: ActivitySession, model: Model | null) {
+function chartSeries(session: ActivitySession, model: HeartRateModel | null) {
   if (!session || session.records.length === 0) return [];
   const timestamps = session.records.map((d) => d.elapsedTime * 1000);
   const powerValues = session.records.map((d) => d.power ?? 0);
   // const heartRates = session.records.map((d) => d.heartRate ?? 0);
   const res = [];
-  if (model && model.hrm.records.length > 0) {
+  if (model && model.records.length > 0 && model.trainResult) {
     res.push({
-      timestamps: model.indicies.map((d) => model.hrm.records[d.index].elapsedTime * 1000),
-      values: model.ys,
+      timestamps: model.trainResult.indicies.map((d) => model.records[d.index].elapsedTime * 1000),
+      values: model.trainResult.predictedHeartRates,
       color: "#e1415b",
     });
   }
@@ -145,9 +150,9 @@ function PowerControlBox({ value, onChange }: { value: number; onChange: (v: num
   );
 }
 
-function ActivityChart({ activitySession }: { activitySession: ActivitySession }) {
-  const series = chartSeries(activitySession, null);
-  return <TimeSeriesChart startTimestamp={0} series={series} />;
+function ActivityChart({ activitySession, heartRateModel }: ActivitySessionAndHeartRateModel) {
+  const series = chartSeries(activitySession, heartRateModel);
+  return <TimeSeriesChart minValue={60} startTimestamp={0} series={series} />;
 }
 
 function MainView() {
@@ -158,23 +163,13 @@ function MainView() {
     events: { heartRate: null, cadence: null, power: null },
   } as State);
   const [controlPower, setControlPower] = useState(50);
-  const [model, setModel] = useState(null as unknown as Model);
+  const [model, setModel] = useState(null as unknown as HeartRateModel);
 
   useEffect(() => {
     const url = `${SERVER_URL}:${SERVER_PORT}/session`;
     axios.get(url).then(({ data }) => {
-      let s: ActivitySession | null = null;
+      let s = data ? fromJson(data) : null;
       let e: Events = { heartRate: null, cadence: null, power: null };
-      if (data !== null) {
-        s = fromJson(data);
-        // const ss = data as unknown as ActivitySession;
-        // s = new ActivitySession(ss.startTimestamp);
-        // s.stopTimestamp = ss.stopTimestamp;
-        // s.records = ss.records;
-        // s.heartRateEvents = ss.heartRateEvents;
-        // s.powerEvents = ss.powerEvents;
-        // s.cadenceEvents = ss.cadenceEvents;
-      }
       setState((state) => ({ index: state.index + 1, session: s, events: e }));
     });
     const socket = socketIOClient(`${SERVER_URL}:${SERVER_PORT}`);
@@ -276,33 +271,10 @@ function MainView() {
   useEffect(() => {
     if (!session || session.records.length === 0) return;
     setModel(() => {
-      const emaDefinitions = [
-        { averageSeconds: 15, powerExponent: 1 },
-        { averageSeconds: 30, powerExponent: 1 },
-        { averageSeconds: 60, powerExponent: 1 },
-        { averageSeconds: 120, powerExponent: 1 },
-        { averageSeconds: 240, powerExponent: 1 },
-        { averageSeconds: 15, powerExponent: 2 },
-        { averageSeconds: 30, powerExponent: 2 },
-        { averageSeconds: 60, powerExponent: 2 },
-        { averageSeconds: 120, powerExponent: 2 },
-        { averageSeconds: 240, powerExponent: 2 },
-        { averageSeconds: 240, powerExponent: 4 },
-      ];
-      const ftp = 290;
-      const tssExponents = [1, 0.5];
-      const hrm = new HeartRateModel(emaDefinitions, tssExponents, ftp);
+      const hrm = new HeartRateModel(null, null, 290);
       hrm.addRecords(session.records);
-      const params = {
-        startTime: 60, //480
-        endTime: 7200,
-        heartRatePausTime: 30, //240
-        startHeartRate: 40,
-        pausStartTime: 5,
-      };
-      const indicies = hrm.filterRecords(null, params);
-      const res = hrm.train(null, params);
-      return { hrm, ys: res.ys, indicies };
+      hrm.train();
+      return hrm;
     });
   }, [tick]);
   // console.log("controlPower", controlPower);
@@ -366,21 +338,26 @@ function MainView() {
 
 function ActivityView() {
   let { id } = useParams();
-  const [activitySession, setActivitySession] = useState(null as null | ActivitySession);
+  const [data, setData] = useState(null as ActivitySessionAndHeartRateModel | null);
   useEffect(() => {
     const url = `${SERVER_URL}:${SERVER_PORT}/activities/${id}`;
     axios.get(url).then(({ data }) => {
       if (!data || !data.startTimestamp) {
-        setActivitySession(null);
+        setData(null);
         return;
       }
       const s = fromJson(data);
-      setActivitySession(s);
+      const hrm = new HeartRateModel(null, null, 290);
+      hrm.addRecords(s.records);
+      hrm.train();
+      setData({ activitySession: s, heartRateModel: hrm });
     });
   }, [id]);
-  console.log(activitySession?.startTimestamp ?? "");
+  console.log(data?.activitySession.startTimestamp ?? "");
   return (
-    <div className="activityview">{activitySession ? <ActivityChart activitySession={activitySession} /> : null}</div>
+    <div className="activityview">
+      {data ? <ActivityChart activitySession={data.activitySession} heartRateModel={data.heartRateModel} /> : null}
+    </div>
   );
 }
 
